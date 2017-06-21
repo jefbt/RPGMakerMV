@@ -86,8 +86,15 @@ Jef.Quest.version = 1.1;
  * I did not make the plugins above, just made then work together.
  * The credits belongs to their respective owners.
  *
+ * ============================================================================
+ *
  * GameusQuestSystem: 
  * https://forums.rpgmakerweb.com/index.php?threads/gameus-quest-system.49234/
+ *
+ * You can also find it in the link below, but it may not be updated:
+ * https://goo.gl/H1PrfV
+ *
+ * ============================================================================
  *
  * GALV_TimedMessagePopups is part of his MV Quest Log plugin, it's inside his
  * demo plugin in the link below:
@@ -95,6 +102,11 @@ Jef.Quest.version = 1.1;
  *
  * A direct dowload link to the demo can be found here: 
  * http://www.mediafire.com/file/oldc3js9xdec8pf/Quest_Log_MV_v.1.2_%28DEMO%29.zip
+ *
+ * You can also find it in the link below, but it may be not be updated:
+ * https://goo.gl/2PeuiW
+ *
+ * ============================================================================
  *
  * This plugin is just an integration of the two above plugins, commercial and
  * personal use are allowed without the need for credits, just don't distribute
