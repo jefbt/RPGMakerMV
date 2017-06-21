@@ -9,12 +9,12 @@ Imported.JEFGameusGALV_QuestPopup = true;
 var Jef = Jef || {};
 Jef = Jef || {};
 Jef.Quest = Jef.Quest || {};
-Jef.Quest.version = 1.1;
+Jef.Quest.version = 1.2;
 
 
 //=============================================================================
  /*:
- * @plugindesc v1.1 Message popup with Gameus Quest System
+ * @plugindesc v1.2 Message popup with Gameus Quest System
  * @author Jeferson Tomazella
  *
  * @param X Position
@@ -47,6 +47,11 @@ Jef.Quest.version = 1.1;
  * Default message: Quest Failed
  * @default Quest Failed
  *
+ * @param Quest Advanced Message
+ * @desc Message that will show when the player advances a quest step.
+ * Default message: Quest Advanced
+ * @default Quest Advanced
+ *
  * @param Rewards Text
  * @desc Rewards text in the popup window.
  * Default value: Rewards
@@ -66,6 +71,11 @@ Jef.Quest.version = 1.1;
  * @desc The description for the gold text to show in the rewards.
  * Default value: \G
  * @default \G
+ *
+ * @param Auto Complete
+ * @desc Set to true for the quests to autocomplete when using NextStep with
+ * the quest's final step. Default value: false
+ * @default false
  *
  * @help
  * ============================================================================
@@ -117,7 +127,8 @@ Jef.Quest.version = 1.1;
  * ============================================================================
  *
  * Version 1.2:
- * - Show quest steps (TODO)
+ * - Show quest steps when getting or advancing a quest.
+ * - Added the possibility to auto complete the quests when using NextStep.
  *
  * Version 1.1:
  * - Show completed quests rewards.
@@ -133,127 +144,179 @@ Jef.Quest.version = 1.1;
 Jef.Quest.Parameters = PluginManager.parameters("JEFGameusGALV_QuestPopup");
 
 Jef.Quest.Param = Jef.Quest.Param || {};
-Jef.Quest.Param.xPos = Jef.Quest.Parameters["X Position"];
-Jef.Quest.Param.yPos = Jef.Quest.Parameters["Y Position"];
-Jef.Quest.Param.time = Jef.Quest.Parameters["Time Show Popup"];
+Jef.Quest.Param.xPos = Number(Jef.Quest.Parameters["X Position"] || 8);
+Jef.Quest.Param.yPos = Number(Jef.Quest.Parameters["Y Position"] || 8);
+Jef.Quest.Param.time = Number(Jef.Quest.Parameters["Time Show Popup"] || 240);
 Jef.Quest.Param.qAcquiredMessage = Jef.Quest.Parameters["Quest Acquired Message"];
 Jef.Quest.Param.qCompletedMessage = Jef.Quest.Parameters["Quest Completed Message"];
 Jef.Quest.Param.qFailedMessage = Jef.Quest.Parameters["Quest Failed Message"];
+Jef.Quest.Param.qAdvancedMessage = Jef.Quest.Parameters["Quest Advanced Message"];
 Jef.Quest.Param.rewardsText = Jef.Quest.Parameters["Rewards Text"];
-Jef.Quest.Param.extraTime = Jef.Quest.Parameters["Extra Time for Completed"];
+Jef.Quest.Param.extraTime = Number(Jef.Quest.Parameters["Extra Time for Completed"] || 120);
 Jef.Quest.Param.expText = Jef.Quest.Parameters["Experience Text"];
-Jef.Quest.goldText = Jef.Quest.Parameters["Gold Text"];
+Jef.Quest.Param.goldText = Jef.Quest.Parameters["Gold Text"];
+Jef.Quest.Param.autocomplete = (Jef.Quest.Parameters["Auto Complete"] || "false").toLowerCase() == "true" || "yes" || "1" || "sim" || "verdadeiro";
 
 //=============================================================================
 // Functionality
 //=============================================================================
 
-	// Gameus changing
-	Game_Party.prototype.addQuest = function(quest_id) {
-		// Does party already have quest?
-        if (this.quests.indexOf(quest_id) < 0) {
-            // If not, give that crap to them. They don't have a choice now.
-            this.quests.push(quest_id);
-			
-			// JEF
-			Jef.Quest.popupQuest(quest_id,0);
-        }
-    };
+// Gameus changing
+Game_Party.prototype.addQuest = function(quest_id)
+{
+	if (!GameusScripts) return;
 	
-	Game_Quest.prototype.fail = function()
-	{
-        this.status = "failed";
-		Jef.Quest.popupQuest(this.questId,2);
-    };
-	
-	Game_Quest.prototype.complete = function()
-	{
-        if ((GameusScripts["Config"]["QuestSystem"]["Auto Rewards"] || "false").toLowerCase() === "true") {
-            this.giveRewards();
-        }
-        this.currentStep = this.maxSteps - 1;
-        this.status = "completed";
+	// Does party already have quest?
+	if (this.quests.indexOf(quest_id) < 0) {
+		// If not, give that crap to them. They don't have a choice now.
+		this.quests.push(quest_id);
 		
-		Jef.Quest.popupQuest(this.questId,1);
-    };
+		// JEF
+		Jef.Quest.popupQuest(quest_id,0);
+	}
+};
 
-	// I just got Galv popup system and adapted it with gameus quest system.
-	Jef.Quest.popupQuest = function(id,status)
+Game_Quest.prototype.fail = function()
+{
+	if (!GameusScripts) return;
+	
+	this.status = "failed";
+	Jef.Quest.popupQuest(this.questId,2);
+};
+
+Game_Quest.prototype.complete = function()
+{
+	if (!GameusScripts) return;
+	
+	if ((GameusScripts["Config"]["QuestSystem"]["Auto Rewards"] || "false").toLowerCase() === "true") {
+		this.giveRewards();
+	}
+	this.currentStep = this.maxSteps - 1;
+	this.status = "completed";
+	
+	Jef.Quest.popupQuest(this.questId, 1);
+};
+
+Game_Quest.prototype.nextStep = function()
+{
+	if (!GameusScripts) return;
+	
+	if (!this.completed())
 	{
-		if (!Imported.Galv_MessageCaptions || !SceneManager._scene) return;
-		if (!GameusScripts) return;
-		
-		var x = Number(Jef.Quest.Param.xPos || 8);
-		var y = Number(Jef.Quest.Param.yPos || 8);
-		
-		var time = Number(Jef.Quest.Param.time || 240);
-		var extraTimeForCompleted = Number(Jef.Quest.Param.extraTime || 120);
-		var rewardsText = Jef.Quest.Param.rewardsText || "Rewards";
-		var xpText = Jef.Quest.expText || "EXP";
-		var goldText = Jef.Quest.goldText || "\G";
-		
-		var q = $gameQuests.get(id);
-		
-		switch (status) {
-			case -1:
-				return; // -1 is hiding an objective.
-			case 0:
-				var txt = Jef.Quest.Param.qAcquiredMessage || "Quest Acquired";
-				break;
-			case 1:
-				var txt = Jef.Quest.Param.qCompletedMessage || "Quest Completed";
-				time += extraTimeForCompleted;
-				
-				var extraMessage = [];
-				extraMessage[0] = rewardsText + ":";
-				
-				for (var i = 0; i < q.rewards.length; i += 1)
-				{
-					var reward = q.rewards[i];
-					switch (reward[0]) {
-						case "item":
-							item = $dataItems[reward[1]];
-							amount = reward[2];
-							extraMessage[i+1] = String(amount) + " " +item.name;
-							break;
-						case "armor":
-							item = $dataArmors[reward[1]];
-							amount = reward[2];
-							extraMessage[i+1] = String(amount) + " " +item.name;
-							break;
-						case "weapon":
-							item = $dataWeapons[reward[1]];
-							amount = reward[2];
-							extraMessage[i+1] = String(amount) + " " +item.name;
-							break;
-						case "xp":
-							amount = reward[1];
-							extraMessage[i+1] = String(amount) + " " + xpText;
-							break;
-						case "gold":
-							amount = reward[1];
-							extraMessage[i+1] = String(amount) + " " + goldText;
-							break;
-						case "custom":
-							amount = reward[1];
-							extraMessage[i+1] = amount.toString();
-							break;
-					}
-				}
-				break;
-			case 2:
-				var txt = Jef.Quest.Param.qFailedMessage || "Quest Failed";
-				break;
-		}
-		if (txt) {
-			SceneManager._scene.createCaptionWindow([x,y],time,[txt + ": " + q.name],[],0);
-			if (extraMessage != undefined)
+		if (Jef.Quest.Param.autocomplete)
+		{
+			if (this.currentStep < this.maxSteps - 1)
 			{
-				SceneManager._scene.createCaptionWindow([x,y+74],time,extraMessage,[],0);
+				this.currentStep = this.currentStep + 1
+				Jef.Quest.popupQuest(this.questId,3);
+			}
+			else
+			{
+				this.currentStep = this.maxSteps - 1;
+				this.complete();
 			}
 		}
-		
-	};
+		else
+		{
+			this.currentStep = this.currentStep + 1 > this.maxSteps - 1 ? this.maxSteps - 1 : this.currentStep + 1;
+	
+			Jef.Quest.popupQuest(this.questId,3);
+		}
+	}
+};
+
+// I just got Galv popup system and adapted it with gameus quest system.
+Jef.Quest.popupQuest = function(id,status,delay)
+{
+	if (!Imported.Galv_MessageCaptions || !SceneManager._scene || !Imported.Galv_MessageCaptions || !GameusScripts) return;
+	
+	var x = Number(Jef.Quest.Param.xPos || 8);
+	var y = Number(Jef.Quest.Param.yPos || 8);
+	
+	var time = Number(Jef.Quest.Param.time || 240);
+	var extraTimeForCompleted = Number(Jef.Quest.Param.extraTime || 120);
+	var rewardsText = Jef.Quest.Param.rewardsText || "Rewards";
+	var xpText = Jef.Quest.Param.expText || "EXP";
+	var goldText = Jef.Quest.Param.goldText || "\G";
+	
+	var q = $gameQuests.get(id);
+	
+	switch (status) {
+		case -1:
+			return; // -1 is hiding an objective.
+		case 0:
+			var txt = Jef.Quest.Param.qAcquiredMessage || "Quest Acquired";
+			var extraMessage = [];
+			extraMessage[0] = "\\c[0]" + q.steps[0][0];
+			break;
+		case 1:
+			var txt = Jef.Quest.Param.qCompletedMessage || "Quest Completed";
+			time += extraTimeForCompleted;
+			
+			var extraMessage = [];
+			extraMessage[0] = rewardsText + ":";
+			
+			for (var i = 0; i < q.rewards.length; i += 1)
+			{
+				var reward = q.rewards[i];
+				switch (reward[0]) {
+					case "item":
+						item = $dataItems[reward[1]];
+						amount = reward[2];
+						extraMessage[i+1] = String(amount) + " " +item.name;
+						break;
+					case "armor":
+						item = $dataArmors[reward[1]];
+						amount = reward[2];
+						extraMessage[i+1] = String(amount) + " " +item.name;
+						break;
+					case "weapon":
+						item = $dataWeapons[reward[1]];
+						amount = reward[2];
+						extraMessage[i+1] = String(amount) + " " +item.name;
+						break;
+					case "xp":
+						amount = reward[1];
+						extraMessage[i+1] = String(amount) + " " + xpText;
+						break;
+					case "gold":
+						amount = reward[1];
+						extraMessage[i+1] = String(amount) + " " + goldText;
+						break;
+					case "custom":
+						amount = reward[1];
+						extraMessage[i+1] = amount.toString();
+						break;
+				}
+			}
+			break;
+		case 2:
+			var txt = Jef.Quest.Param.qFailedMessage || "Quest Failed";
+			break;
+		case 3:
+			var txt = Jef.Quest.Param.qAdvancedMessage || "Quest Advanced";
+			var extraMessage = [];
+			var steps = q.steps.slice(0, q.currentStep + 1);
+			for (var i = 0; i < steps.length; i += 1)
+			{
+				if (q.currentStep > i)
+					extraMessage[i] = "\\c[7]" + steps[i][0];
+				else
+					extraMessage[i] = "\\c[0]" + steps[i][0];
+			}
+			break;
+	}
+	if (txt)
+	{
+		var newDelay = Number(delay || 0);
+		SceneManager._scene.createCaptionWindow([x,y],time,[txt + ": " + q.name],[],newDelay);
+		if (extraMessage != undefined)
+		{
+			SceneManager._scene.createCaptionWindow([x,y+74],time,extraMessage,[],newDelay);
+		}
+	}
+	
+};
 
 
 //=============================================================================
