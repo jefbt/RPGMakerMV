@@ -209,6 +209,10 @@
  * 
  * Quest filter may be now changed with Mouse and Touch.
  * The system buttons are used to show that to the player.
+ *
+ * Also added colors:
+ *    Completed quests names' are shown in GREEN.
+ *    Failed quests names' are shown in RED.
  * 
  */
  
