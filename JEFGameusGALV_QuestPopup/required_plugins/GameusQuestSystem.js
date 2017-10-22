@@ -1,7 +1,7 @@
 //=============================================================================
 // Gameus Quest System
-// Author gameus
-// Version 1.0
+// Authors gameus and Jeferson Tomazella
+// Version 1.1
 //-----------------------------------------------------------------------------
 // Intro:
 // This is a (for the most part) basic quest system. Has a basic layout to help
@@ -26,11 +26,12 @@
 //
 // Credits:
 // gameus ~ For creating it.
+// Jeferson Tomazella ~ For enabling filter changing with touch and mouse.
 //=============================================================================
 
 /*:
- * @plugindesc v1.0 - A simplistic quest system with various customization options.
- * @author gameus
+ * @plugindesc v1.1 - A simplistic quest system with various customization options.
+ * @author gameus and Jeferson Tomazella
  *
  * @param Auto Rewards
  * @desc True or False. Tells the script whether or not to automatically give quest rewards upon completion.
@@ -203,6 +204,12 @@
  * $gameParty.totalQuests(filter)
  *   Does the same as above, but only applies to the quests that the party has.
  *
+ * ---------------------------------
+ * Version 1.1 - changes made by Jeferson Tomazella
+ * 
+ * Quest filter may be now changed with Mouse and Touch.
+ * The system buttons are used to show that to the player.
+ * 
  */
  
  // Import 'Quest System' 
@@ -230,6 +237,9 @@ DataManager._databaseFiles.push(
     gameus_Quest_Save_Data        = DataManager.makeSaveContents;
     gameus_Quest_Load_Data        = DataManager.extractSaveContents;
     gameus_Quest_Plugin_Commands  = Game_Interpreter.prototype.pluginCommand;
+	
+	GameusScripts.iconFilterLeft  = Number(GameusScripts["Config"]["QuestSystem"]["Icon Left"] || 73);
+	GameusScripts.iconFilterRight = Number(GameusScripts["Config"]["QuestSystem"]["Icon Right"] || 74);
     
 //---------------------------------------------------------------------------------------------
 // Plugin Commands
@@ -498,7 +508,7 @@ DataManager._databaseFiles.push(
             if (q.status === filter.toLowerCase())
                 count += 1;
         }
-        return data;
+        return count;
     };
 //---------------------------------------------------------------------------------------------
 // Window_Base
@@ -611,7 +621,7 @@ DataManager._databaseFiles.push(
             headerX = 40;
         }
         this.questBitmap.textColor = this.systemColor();
-        this.questBitmap.drawText(q.name, headerX, this.lineY, this.contentsWidth() - headerX, this.lineHeight());
+		this.questBitmap.drawText(q.name, headerX, this.lineY, this.contentsWidth() - headerX, this.lineHeight());
         this.write();
         this.questBitmap.textColor = this.normalColor();
         var lines = this.sliceText(q.desc, this.contentsWidth());
@@ -667,10 +677,11 @@ DataManager._databaseFiles.push(
         var bullet = String(GameusScripts["Config"]["QuestSystem"]["Bullet Character"] || "-" ) + " ";
         // Draw Rewards
         this.questBitmap.textColor = this.systemColor(); 
-		// JEF
-        //this.questBitmap.drawText("Rewards", 0, this.lineY, this.contentsWidth(), this.lineHeight());
+		//SJEF
 		var rewardText = GameusScripts["Config"]["QuestSystem"]["Rewards Text"] || "Rewards";
 		this.questBitmap.drawText(rewardText, 0, this.lineY, this.contentsWidth(), this.lineHeight());
+		//this.questBitmap.drawText("Rewards", 0, this.lineY, this.contentsWidth(), this.lineHeight());
+		//EJEF
         this.write();
         this.questBitmap.textColor = this.normalColor();
         for (var i = 0; i < q.rewards.length; i += 1) {
@@ -833,7 +844,7 @@ DataManager._databaseFiles.push(
             this.expanded[i] = false;
         this.filter = "all";
         this.refreshQuests();
-        Window_Command.prototype.initialize.call(this, xx, yy);
+		Window_Command.prototype.initialize.call(this, xx, yy);      
     };
     
     Window_Quests.prototype.windowWidth = function() {
@@ -861,7 +872,13 @@ DataManager._databaseFiles.push(
                 this.drawIcon(q.icon, rect.x + 8, rect.y + 2);
                 tempX = 40;
             }
+			//START	JEF
+			// Show completed quests in green and failed quests in red.
+			if (q.completed()) this.changeTextColor(this.textColor(24));
+			if (q.failed()) this.changeTextColor(this.textColor(2));
+			//END	JEF
         }
+
         this.drawText(this.commandName(index), rect.x + tempX / 2, rect.y, rect.width, align);
     };
     
@@ -957,14 +974,14 @@ DataManager._databaseFiles.push(
     function Window_QuestFilter() {
         this.initialize.apply(this, arguments);
     }
-
+	
     Window_QuestFilter.prototype = Object.create(Window_Base.prototype);
     Window_QuestFilter.prototype.constructor = Window_QuestFilter;
 
     Window_QuestFilter.prototype.initialize = function() {
-        this.qFilters = [
+		this.qFilters = [
             GameusScripts["Config"]["QuestSystem"]["All Word"] || "All",
-            GameusScripts["Config"]["QuestSystem"]["Progress Word"] || "In-Progress",
+            GameusScripts["Config"]["QuestSystem"]["In-Progress Word"] || "In-Progress",
             GameusScripts["Config"]["QuestSystem"]["Completed Word"] || "Completed",
             GameusScripts["Config"]["QuestSystem"]["Failed Word"] || "Failed",
         ];
@@ -976,7 +993,45 @@ DataManager._databaseFiles.push(
         var height = this.windowHeight();
         Window_Base.prototype.initialize.call(this, xx, yy, width, height);
         this.refresh();
-    };
+
+		// START JEF LEFT RIGHT
+		// Buttons to change quest filter with touch and mouse.
+		var bitmap = ImageManager.loadSystem('ButtonSet');
+		var buttonWidth = 48;
+		var buttonHeight = 48;
+		this._questButtons = [];
+		for (var i = 1; i < 3; i++) {
+			var button = new Sprite_Button();
+			var x = buttonWidth * i;
+			button.bitmap = bitmap;
+			button.setColdFrame(x, 0, buttonWidth, buttonHeight);
+			button.setHotFrame(x, buttonHeight, buttonWidth, buttonHeight);
+			button.visible = true;
+			button.y = 13;
+			if (i == 2){
+				button.x = 266;
+			}else{
+				button.x = 8;
+			}
+			this._questButtons.push(button);
+			this.addChild(button);
+		}
+		this._questButtons[0].setClickHandler(this.onButtonDownLeft.bind(this));
+		this._questButtons[1].setClickHandler(this.onButtonDownRight.bind(this));
+		// END	 JEF LEFT RIGHT
+	};
+	
+	//SJEF
+	// Button handlers to make the quest filter buttons work correctly.
+	// The "GameusScripts.window_quests = null;" was necessary to reach the changing function.
+	GameusScripts.window_quests = null;
+	Window_QuestFilter.prototype.onButtonDownLeft = function() {
+		GameusScripts.window_quests.cursorLeft();
+	};
+	Window_QuestFilter.prototype.onButtonDownRight = function() {
+		GameusScripts.window_quests.cursorRight();
+	};
+	//EJEF
 
     Window_QuestFilter.prototype.windowWidth = function() {
         return 320;
@@ -1025,6 +1080,10 @@ DataManager._databaseFiles.push(
         this.addWindow(this.questInfo);
         this.questFilter = new Window_QuestFilter();
         this.addWindow(this.questFilter);
+		//SJEF
+		// This is to store the quest window and use it to reach the cursorLeft and cursorRight functions with the touch and mouse.
+		GameusScripts.window_quests = this.questWindow;
+		//EJEF
     };
     
     Scene_Quest.prototype.update = function() {
